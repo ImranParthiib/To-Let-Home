@@ -1,13 +1,19 @@
 const express = require('express');
 const cors = require('cors');
+const { ObjectId } = require('mongodb');
 const { connectToDatabase } = require('./config/mongodb');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
-app.use(express.json()); // Middleware to parse JSON
+app.use(express.json());
 
-// Example API route to fetch all properties from MongoDB
+// Root route
+app.get('/', (req, res) => {
+  res.send('Welcome to the Property Management API');
+});
+
+// Fetch all properties
 app.get('/api/properties', async (req, res) => {
   try {
     const db = await connectToDatabase();
@@ -19,16 +25,52 @@ app.get('/api/properties', async (req, res) => {
   }
 });
 
-// Example API route to add a property
+// Add a new property
 app.post('/api/properties', async (req, res) => {
   try {
     const db = await connectToDatabase();
     const newProperty = req.body;
     const result = await db.collection('properties').insertOne(newProperty);
-    res.status(201).json(result.ops[0]);
+    res.status(201).json({ ...newProperty, _id: result.insertedId });
   } catch (error) {
     console.error('Error adding property:', error);
     res.status(500).json({ error: 'Failed to add property' });
+  }
+});
+
+// Update a property
+app.put('/api/properties/:id', async (req, res) => {
+  try {
+    const db = await connectToDatabase();
+    const { id } = req.params;
+    const updatedProperty = req.body;
+    const result = await db.collection('properties').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedProperty }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+    res.status(200).json({ message: 'Property updated successfully' });
+  } catch (error) {
+    console.error('Error updating property:', error);
+    res.status(500).json({ error: 'Failed to update property' });
+  }
+});
+
+// Delete a property
+app.delete('/api/properties/:id', async (req, res) => {
+  try {
+    const db = await connectToDatabase();
+    const { id } = req.params;
+    const result = await db.collection('properties').deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+    res.status(200).json({ message: 'Property deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting property:', error);
+    res.status(500).json({ error: 'Failed to delete property' });
   }
 });
 
